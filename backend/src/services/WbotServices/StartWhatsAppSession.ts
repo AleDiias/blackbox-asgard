@@ -10,7 +10,7 @@ export const StartWhatsAppSession = async (
   whatsapp: Whatsapp,
   companyId: number
 ): Promise<void> => {
-  await whatsapp.update({ status: "OPENING" });
+  await whatsapp.update({ status: "qrcode" });
 
   const io = getIO();
   io.to(`company-${whatsapp.companyId}-mainchannel`).emit("whatsappSession", {

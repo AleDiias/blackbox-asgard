@@ -36,7 +36,7 @@ interface Response {
 
 const CreateWhatsAppService = async ({
   name,
-  status = "OPENING",
+  status = "qrcode",
   queueIds = [],
   greetingMessage,
   complationMessage,
