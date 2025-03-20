@@ -21,8 +21,10 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
       try {
         setLoading(true);
         const { data } = await api.get(`/whatsapp/${whatsAppId}`);
+        console.log("QR Code recebido:", data.qrcode);
         setQrCode(data.qrcode);
       } catch (err) {
+        console.error("Erro ao buscar QR Code:", err);
         toastError(err);
       } finally {
         setLoading(false);
@@ -37,7 +39,9 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
     const socket = socketManager.getSocket(companyId);
 
     socket.on(`company-${companyId}-whatsappSession`, (data) => {
+      console.log("Atualização do socket recebida:", data);
       if (data.action === "update" && data.session.id === whatsAppId) {
+        console.log("Novo QR Code recebido:", data.session.qrcode);
         setQrCode(data.session.qrcode);
       }
 
@@ -72,11 +76,11 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
               4 - Aponte seu celular para essa tela para capturar o QR Code
             </Typography>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: "256px", minHeight: "256px" }}>
             {loading ? (
               <CircularProgress size={256} />
             ) : qrCode ? (
-              <QRCode value={qrCode} size={256} />
+              <QRCode value={qrCode} size={256} level="H" includeMargin={true} />
             ) : (
               <Typography variant="body1" color="textSecondary">
                 {i18n.t("qrCode.message")}

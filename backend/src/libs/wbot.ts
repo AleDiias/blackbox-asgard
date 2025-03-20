@@ -245,7 +245,10 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
 
                 io.to(`company-${whatsapp.companyId}-mainchannel`).emit(`company-${whatsapp.companyId}-whatsappSession`, {
                   action: "update",
-                  session: whatsapp
+                  session: {
+                    ...whatsapp,
+                    qrcode: qr
+                  }
                 });
               }
             }
