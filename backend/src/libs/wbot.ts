@@ -233,6 +233,7 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                   status: "qrcode",
                   retries: 0
                 });
+
                 const sessionIndex = sessions.findIndex(
                   s => s.id === whatsapp.id
                 );
