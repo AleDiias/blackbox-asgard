@@ -21,8 +21,10 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
       try {
         setLoading(true);
         const { data } = await api.get(`/whatsapp/${whatsAppId}`);
-        console.log("QR Code recebido:", data.qrcode);
-        setQrCode(data.qrcode);
+        console.log("QR Code recebido na busca inicial:", data.qrcode);
+        if (data.qrcode) {
+          setQrCode(data.qrcode);
+        }
       } catch (err) {
         console.error("Erro ao buscar QR Code:", err);
         toastError(err);
@@ -41,8 +43,10 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
     socket.on(`company-${companyId}-whatsappSession`, (data) => {
       console.log("Atualização do socket recebida:", data);
       if (data.action === "update" && data.session.id === whatsAppId) {
-        console.log("Novo QR Code recebido:", data.session.qrcode);
-        setQrCode(data.session.qrcode);
+        console.log("Novo QR Code recebido via socket:", data.session.qrcode);
+        if (data.session.qrcode) {
+          setQrCode(data.session.qrcode);
+        }
       }
 
       if (data.action === "update" && data.session.qrcode === "") {

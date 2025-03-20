@@ -228,6 +228,8 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                 logger.info(`Session QRCode Generate ${name}`);
                 retriesQrCodeMap.set(id, (retriesQrCode += 1));
 
+                logger.info(`QR Code gerado para ${name}: ${qr}`);
+                
                 await whatsapp.update({
                   qrcode: qr,
                   status: "qrcode",
@@ -243,12 +245,16 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                   sessions.push(wsocket);
                 }
 
+                const sessionData = {
+                  ...whatsapp,
+                  qrcode: qr
+                };
+
+                logger.info(`Enviando QR Code para o frontend: ${JSON.stringify(sessionData)}`);
+
                 io.to(`company-${whatsapp.companyId}-mainchannel`).emit(`company-${whatsapp.companyId}-whatsappSession`, {
                   action: "update",
-                  session: {
-                    ...whatsapp,
-                    qrcode: qr
-                  }
+                  session: sessionData
                 });
               }
             }
