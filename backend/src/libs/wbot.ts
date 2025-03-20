@@ -5,11 +5,11 @@ import makeWASocket, {
   DisconnectReason,
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
-  makeInMemoryStore,
   isJidBroadcast,
   CacheStore
 } from "@whiskeysockets/baileys";
 import makeWALegacySocket from "@whiskeysockets/baileys";
+import makeInMemoryStore from "@whiskeysockets/baileys/lib/Store/make-in-memory-store";
 import P from "pino";
 
 import Whatsapp from "../models/Whatsapp";
@@ -121,7 +121,7 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                     deviceListMetadataVersion: 2,
                     deviceListMetadata: {},
                   },
-                  ...message,
+                  message: message
                 },
               };
             }
@@ -206,28 +206,62 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                 wsocket.ws.close();
                 wsocket = null;
                 retriesQrCodeMap.delete(id);
+              } else {
+                logger.info(`Session QRCode Generate ${name}`);
+                retriesQrCodeMap.set(id, (retriesQrCode += 1));
+
+                logger.info(`QR Code gerado para ${name}: ${qr}`);
+                
+                // Atualiza o WhatsApp com o QR Code
+                await whatsapp.update({
+                  qrcode: qr,
+                  status: "qrcode",
+                  retries: 0
+                });
+
+                // Busca o WhatsApp atualizado
+                const whatsappUpdated = await Whatsapp.findOne({
+                  where: { id: whatsapp.id }
+                });
+
+                if (!whatsappUpdated) {
+                  logger.error(`WhatsApp não encontrado para ID: ${whatsapp.id}`);
+                  return;
+                }
+
+                const sessionIndex = sessions.findIndex(
+                  s => s.id === whatsapp.id
+                );
+
+                if (sessionIndex === -1) {
+                  wsocket.id = whatsapp.id;
+                  sessions.push(wsocket);
+                }
+
+                // Prepara os dados da sessão com o QR Code
+                const sessionData = {
+                  ...whatsappUpdated.toJSON(),
+                  qrcode: qr
+                };
+
+                logger.info(`Enviando QR Code para o frontend: ${JSON.stringify(sessionData)}`);
+
+                // Envia a atualização via socket
+                io.to(`company-${whatsapp.companyId}-mainchannel`).emit(`company-${whatsapp.companyId}-whatsappSession`, {
+                  action: "update",
+                  session: sessionData
+                });
+
+                // Envia uma atualização específica do QR Code
+                io.to(`company-${whatsapp.companyId}-mainchannel`).emit(`company-${whatsapp.companyId}-whatsappSession`, {
+                  action: "update",
+                  session: {
+                    id: whatsapp.id,
+                    qrcode: qr,
+                    status: "qrcode"
+                  }
+                });
               }
-              logger.info(`Session QRCode Generate ${name}`);
-              retriesQrCodeMap.set(id, (retriesQrCode += 1));
-
-              await whatsapp.update({
-                qrcode: qr,
-                status: "qrcode",
-                retries: 0
-              });
-              const sessionIndex = sessions.findIndex(
-                s => s.id === whatsapp.id
-              );
-
-              if (sessionIndex === -1) {
-                wsocket.id = whatsapp.id;
-                sessions.push(wsocket);
-              }
-
-              io.to(`company-${whatsapp.companyId}-mainchannel`).emit(`company-${whatsapp.companyId}-whatsappSession`, {
-                action: "update",
-                session: whatsapp
-              });
             }
           }
         );
