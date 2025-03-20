@@ -2,14 +2,13 @@ import React, { useEffect, useState, useContext } from "react";
 import QRCode from "qrcode.react";
 import toastError from "../../errors/toastError";
 
-import { Dialog, DialogContent, Paper, Typography, useTheme, CircularProgress } from "@material-ui/core";
+import { Dialog, DialogContent, Paper, Typography, useTheme } from "@material-ui/core";
 import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import { SocketContext } from "../../context/Socket/SocketContext";
 
 const QrcodeModal = ({ open, onClose, whatsAppId }) => {
   const [qrCode, setQrCode] = useState("");
-  const [loading, setLoading] = useState(true);
   const theme = useTheme();
 
   const socketManager = useContext(SocketContext);
@@ -19,17 +18,10 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
       if (!whatsAppId) return;
 
       try {
-        setLoading(true);
         const { data } = await api.get(`/whatsapp/${whatsAppId}`);
-        console.log("QR Code recebido na busca inicial:", data.qrcode);
-        if (data.qrcode) {
-          setQrCode(data.qrcode);
-        }
+        setQrCode(data.qrcode);
       } catch (err) {
-        console.error("Erro ao buscar QR Code:", err);
         toastError(err);
-      } finally {
-        setLoading(false);
       }
     };
     fetchSession();
@@ -41,12 +33,8 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
     const socket = socketManager.getSocket(companyId);
 
     socket.on(`company-${companyId}-whatsappSession`, (data) => {
-      console.log("Atualização do socket recebida:", data);
       if (data.action === "update" && data.session.id === whatsAppId) {
-        console.log("Novo QR Code recebido via socket:", data.session.qrcode);
-        if (data.session.qrcode) {
-          setQrCode(data.session.qrcode);
-        }
+        setQrCode(data.session.qrcode);
       }
 
       if (data.action === "update" && data.session.qrcode === "") {
@@ -80,15 +68,11 @@ const QrcodeModal = ({ open, onClose, whatsAppId }) => {
               4 - Aponte seu celular para essa tela para capturar o QR Code
             </Typography>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: "256px", minHeight: "256px" }}>
-            {loading ? (
-              <CircularProgress size={256} />
-            ) : qrCode ? (
-              <QRCode value={qrCode} size={256} level="H" includeMargin={true} />
+          <div>
+            {qrCode ? (
+              <QRCode value={qrCode} size={256} />
             ) : (
-              <Typography variant="body1" color="textSecondary">
-                {i18n.t("qrCode.message")}
-              </Typography>
+              <span>Waiting for QR Code</span>
             )}
           </div>
         </Paper>

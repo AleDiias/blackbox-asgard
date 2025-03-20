@@ -97,60 +97,42 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
         const userDevicesCache: CacheStore = new NodeCache();
 
         wsocket = makeWASocket({
-          logger: loggerBaileys,
+          logger,
           printQRInTerminal: false,
-          browser: Browsers.appropriate("Desktop"),
+          browser: ["Chrome (Linux)", "", ""],
           auth: {
             creds: state.creds,
             keys: makeCacheableSignalKeyStore(state.keys, logger),
           },
-          version,
-          // defaultQueryTimeoutMs: 60000,
-          // retryRequestDelayMs: 250,
-          // keepAliveIntervalMs: 1000 * 60 * 10 * 3,
-          msgRetryCounterCache,
-          shouldIgnoreJid: jid => isJidBroadcast(jid),
+          defaultQueryTimeoutMs: undefined,
+          connectTimeoutMs: 60000,
+          keepAliveIntervalMs: 25000,
+          retryRequestDelayMs: 250,
+          patchMessageBeforeSending: (message) => {
+            const requiresPatch = !!(
+              message.buttonsMessage ||
+              message.templateMessage ||
+              message.listMessage
+            );
+            if (requiresPatch) {
+              message = {
+                viewOnceMessage: {
+                  messageContextInfo: {
+                    deviceListMetadataVersion: 2,
+                    deviceListMetadata: {},
+                  },
+                  ...message,
+                },
+              };
+            }
+            return message;
+          },
         });
-
-        // wsocket = makeWASocket({
-        //   version,
-        //   logger: loggerBaileys,
-        //   printQRInTerminal: false,
-        //   auth: state as AuthenticationState,
-        //   generateHighQualityLinkPreview: false,
-        //   shouldIgnoreJid: jid => isJidBroadcast(jid),
-        //   browser: ["Chat", "Chrome", "10.15.7"],
-        //   patchMessageBeforeSending: (message) => {
-        //     const requiresPatch = !!(
-        //       message.buttonsMessage ||
-        //       // || message.templateMessage
-        //       message.listMessage
-        //     );
-        //     if (requiresPatch) {
-        //       message = {
-        //         viewOnceMessage: {
-        //           message: {
-        //             messageContextInfo: {
-        //               deviceListMetadataVersion: 2,
-        //               deviceListMetadata: {},
-        //             },
-        //             ...message,
-        //           },
-        //         },
-        //       };
-        //     }
-
-        //     return message;
-        //   },
-        // })
 
         wsocket.ev.on(
           "connection.update",
           async ({ connection, lastDisconnect, qr }) => {
-            logger.info(
-              `Socket  ${name} Connection Update ${connection || ""} ${lastDisconnect || ""
-              }`
-            );
+            logger.info(`Socket ${name} Connection Update ${connection || ""} ${lastDisconnect || ""}`);
 
             if (connection === "close") {
               if ((lastDisconnect?.error as Boom)?.output?.statusCode === 403) {
@@ -224,50 +206,39 @@ export const initWASocket = async (whatsapp: Whatsapp): Promise<Session> => {
                 wsocket.ws.close();
                 wsocket = null;
                 retriesQrCodeMap.delete(id);
-              } else {
-                logger.info(`Session QRCode Generate ${name}`);
-                retriesQrCodeMap.set(id, (retriesQrCode += 1));
-
-                logger.info(`QR Code gerado para ${name}: ${qr}`);
-                
-                await whatsapp.update({
-                  qrcode: qr,
-                  status: "qrcode",
-                  retries: 0
-                });
-
-                const sessionIndex = sessions.findIndex(
-                  s => s.id === whatsapp.id
-                );
-
-                if (sessionIndex === -1) {
-                  wsocket.id = whatsapp.id;
-                  sessions.push(wsocket);
-                }
-
-                const sessionData = {
-                  ...whatsapp,
-                  qrcode: qr
-                };
-
-                logger.info(`Enviando QR Code para o frontend: ${JSON.stringify(sessionData)}`);
-
-                io.to(`company-${whatsapp.companyId}-mainchannel`).emit(`company-${whatsapp.companyId}-whatsappSession`, {
-                  action: "update",
-                  session: sessionData
-                });
               }
+              logger.info(`Session QRCode Generate ${name}`);
+              retriesQrCodeMap.set(id, (retriesQrCode += 1));
+
+              await whatsapp.update({
+                qrcode: qr,
+                status: "qrcode",
+                retries: 0
+              });
+              const sessionIndex = sessions.findIndex(
+                s => s.id === whatsapp.id
+              );
+
+              if (sessionIndex === -1) {
+                wsocket.id = whatsapp.id;
+                sessions.push(wsocket);
+              }
+
+              io.to(`company-${whatsapp.companyId}-mainchannel`).emit(`company-${whatsapp.companyId}-whatsappSession`, {
+                action: "update",
+                session: whatsapp
+              });
             }
           }
         );
+
         wsocket.ev.on("creds.update", saveState);
 
         store.bind(wsocket.ev);
       })();
-    } catch (error) {
-      Sentry.captureException(error);
-      console.log(error);
-      reject(error);
+    } catch (err) {
+      logger.error(err);
+      reject(err);
     }
   });
 };
