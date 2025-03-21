@@ -7,6 +7,13 @@ import { i18n } from "../../translate/i18n";
 import api from "../../services/api";
 import { SocketContext } from "../../context/Socket/SocketContext";
 
+interface Whatsapp {
+  id: number;
+  update: (data: any) => Promise<void>;
+  findOne: (query: any) => Promise<Whatsapp>;
+  // ... outras propriedades
+}
+
 const QrcodeModal = ({ open, onClose, whatsAppId }) => {
   const [qrCode, setQrCode] = useState("");
   const [loading, setLoading] = useState(true);
